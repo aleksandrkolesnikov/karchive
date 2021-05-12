@@ -41,6 +41,7 @@ public:
         , type(KCompressionDevice::None)
         , errorCode(QFileDevice::NoError)
         , deviceReadPos(0)
+        , knownSize(-1)
         , q(q)
     {
     }
@@ -57,6 +58,7 @@ public:
     KCompressionDevice::CompressionType type;
     QFileDevice::FileError errorCode;
     qint64 deviceReadPos;
+    qint64 knownSize;
     KCompressionDevice *q;
 };
 
@@ -197,6 +199,16 @@ void KCompressionDevice::close()
 QFileDevice::FileError KCompressionDevice::error() const
 {
     return d->errorCode;
+}
+
+void KCompressionDevice::setKnownSize(qint64 size)
+{
+    d->knownSize = size;
+}
+
+qint64 KCompressionDevice::size() const
+{
+    return d->knownSize < 0 ? 0 : d->knownSize;
 }
 
 bool KCompressionDevice::seek(qint64 pos)

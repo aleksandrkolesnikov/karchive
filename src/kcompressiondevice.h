@@ -114,6 +114,16 @@ public:
      */
     QFileDevice::FileError error() const;
 
+    /**
+     * Sets the value that will be returned by size(), otherwise 0 is returned;
+     */
+    void setKnownSize(qint64 size);
+
+    /**
+     * Returns the size of the KCompressionDevice may be 0 if uknown
+     */
+    qint64 size() const override;
+
 protected:
     friend class K7Zip;
 

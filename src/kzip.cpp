@@ -1440,6 +1440,7 @@ QIODevice *KZipFileEntry::createDevice() const
     if (encoding() == 8) {
         // On top of that, create a device that uncompresses the zlib data
         KCompressionDevice *filterDev = new KCompressionDevice(limitedDev, true, KCompressionDevice::GZip);
+        filterDev->setKnownSize(size());
 
         if (!filterDev) {
             return nullptr; // ouch
