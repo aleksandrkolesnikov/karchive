@@ -92,9 +92,7 @@ bool KXzFilter::init(int mode, Flag flag, const QVector<unsigned char> &properti
 
             Q_ASSERT(properties.size() == 5);
             unsigned char props[5];
-            for (int i = 0; i < properties.size(); ++i) {
-                props[i] = properties[i];
-            }
+            std::copy(properties.cbegin(), properties.cend(), std::begin(props));
 
             result = lzma_properties_decode(&filters[0], nullptr, props, sizeof(props));
             if (result != LZMA_OK) {

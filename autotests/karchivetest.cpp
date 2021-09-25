@@ -138,10 +138,10 @@ enum ListingFlags {
 static QStringList recursiveListEntries(const KArchiveDirectory *dir, const QString &path, int listingFlags)
 {
     QStringList ret;
-    QStringList l = dir->entries();
-    l.sort();
-    for (const QString &it : std::as_const(l)) {
-        const KArchiveEntry *entry = dir->entry(it);
+    QStringList lst = dir->entries();
+    lst.sort();
+    for (const QString &name : std::as_const(lst)) {
+        const KArchiveEntry *entry = dir->entry(name);
 
         QString descr;
         descr += QStringLiteral("mode=") + QString::number(entry->permissions(), 8) + ' ';
@@ -149,7 +149,7 @@ static QStringList recursiveListEntries(const KArchiveDirectory *dir, const QStr
             descr += QStringLiteral("user=") + entry->user() + ' ';
             descr += QStringLiteral("group=") + entry->group() + ' ';
         }
-        descr += QStringLiteral("path=") + path + (it) + ' ';
+        descr += QStringLiteral("path=") + path + (name) + ' ';
         descr += QStringLiteral("type=") + (entry->isDirectory() ? "dir" : "file");
         if (entry->isFile()) {
             descr += QStringLiteral(" size=") + QString::number(static_cast<const KArchiveFile *>(entry)->size());
@@ -166,7 +166,7 @@ static QStringList recursiveListEntries(const KArchiveDirectory *dir, const QStr
         ret.append(descr);
 
         if (entry->isDirectory()) {
-            ret += recursiveListEntries((KArchiveDirectory *)entry, path + it + '/', listingFlags);
+            ret += recursiveListEntries((KArchiveDirectory *)entry, path + name + '/', listingFlags);
         }
     }
     return ret;
@@ -1271,12 +1271,10 @@ void KArchiveTest::testZipDuplicateNames()
 
     QVERIFY(zip.open(QIODevice::ReadOnly));
 
-    int metaInfCount = 0;
-    for (const QString &entryName : zip.directory()->entries()) {
-        if (entryName.startsWith("META-INF")) {
-            metaInfCount++;
-        }
-    }
+    const QStringList entries = zip.directory()->entries();
+    const int metaInfCount = std::count_if(entries.cbegin(), entries.cend(), [](const QString &name) {
+        return name.startsWith("META-INF");
+    });
 
     QVERIFY2(metaInfCount == 1, "Archive root directory contains duplicates");
 }

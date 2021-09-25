@@ -429,7 +429,7 @@ void KFilterTest::test_saveFile()
 #endif
         for (int i = 0; i < numLines; ++i) {
             stream << lineTemplate.arg(i);
-            stream << QString("\n");
+            stream << '\n';
         }
         stream.flush();
         QCOMPARE(stream.status(), QTextStream::Ok);

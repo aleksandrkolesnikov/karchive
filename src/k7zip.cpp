@@ -1717,10 +1717,9 @@ QByteArray K7Zip::K7ZipPrivate::readAndDecodePackedStreams(bool readMainStreamIn
 
 void K7Zip::K7ZipPrivate::createItemsFromEntities(const KArchiveDirectory *dir, const QString &path, QByteArray &data)
 {
-    const QStringList l = dir->entries();
-    QStringList::ConstIterator it = l.begin();
-    for (; it != l.end(); ++it) {
-        const KArchiveEntry *entry = dir->entry((*it));
+    const QStringList list = dir->entries();
+    for (const auto &entryName : list) {
+        const KArchiveEntry *entry = dir->entry(entryName);
 
         FileInfo *fileInfo = new FileInfo;
         fileInfo->attribDefined = true;
@@ -1751,7 +1750,7 @@ void K7Zip::K7ZipPrivate::createItemsFromEntities(const KArchiveDirectory *dir, 
             fileInfo->attributes |= FILE_ATTRIBUTE_UNIX_EXTENSION + ((entry->permissions() & 0xFFFF) << 16);
             fileInfo->isDir = true;
             fileInfos.append(fileInfo);
-            createItemsFromEntities((KArchiveDirectory *)entry, path + (*it) + QLatin1Char('/'), data);
+            createItemsFromEntities((KArchiveDirectory *)entry, path + entryName + QLatin1Char('/'), data);
         }
     }
 }
@@ -1897,8 +1896,8 @@ void K7Zip::K7ZipPrivate::writePackInfo(quint64 dataOffset, QVector<quint64> &pa
     writeNumber(packedSizes.size());
     writeByte(kSize);
 
-    for (int i = 0; i < packedSizes.size(); i++) {
-        writeNumber(packedSizes[i]);
+    for (const quint64 packed : std::as_const(packedSizes)) {
+        writeNumber(packed);
     }
 
     writeHashDigests(packedCRCsDefined, packedCRCs);
@@ -1909,48 +1908,45 @@ void K7Zip::K7ZipPrivate::writePackInfo(quint64 dataOffset, QVector<quint64> &pa
 void K7Zip::K7ZipPrivate::writeFolder(const Folder *folder)
 {
     writeNumber(folder->folderInfos.size());
-    for (int i = 0; i < folder->folderInfos.size(); i++) {
-        const Folder::FolderInfo *info = folder->folderInfos.at(i);
-        {
-            size_t propsSize = info->properties.size();
+    for (const Folder::FolderInfo *info : folder->folderInfos) {
+        size_t propsSize = info->properties.size();
 
-            quint64 id = info->methodID;
-            size_t idSize;
-            for (idSize = 1; idSize < sizeof(id); idSize++) {
-                if ((id >> (8 * idSize)) == 0) {
-                    break;
-                }
+        quint64 id = info->methodID;
+        size_t idSize;
+        for (idSize = 1; idSize < sizeof(id); idSize++) {
+            if ((id >> (8 * idSize)) == 0) {
+                break;
             }
+        }
 
-            int longID[15];
-            for (int t = idSize - 1; t >= 0; t--, id >>= 8) {
-                longID[t] = (int)(id & 0xFF);
-            }
+        int longID[15];
+        for (int t = idSize - 1; t >= 0; t--, id >>= 8) {
+            longID[t] = (int)(id & 0xFF);
+        }
 
-            int b;
-            b = (int)(idSize & 0xF);
-            bool isComplex = !info->isSimpleCoder();
-            b |= (isComplex ? 0x10 : 0);
-            b |= ((propsSize != 0) ? 0x20 : 0);
+        int b;
+        b = (int)(idSize & 0xF);
+        bool isComplex = !info->isSimpleCoder();
+        b |= (isComplex ? 0x10 : 0);
+        b |= ((propsSize != 0) ? 0x20 : 0);
 
-            writeByte(b);
-            for (size_t j = 0; j < idSize; ++j) {
-                writeByte(longID[j]);
-            }
+        writeByte(b);
+        for (size_t j = 0; j < idSize; ++j) {
+            writeByte(longID[j]);
+        }
 
-            if (isComplex) {
-                writeNumber(info->numInStreams);
-                writeNumber(info->numOutStreams);
-            }
+        if (isComplex) {
+            writeNumber(info->numInStreams);
+            writeNumber(info->numOutStreams);
+        }
 
-            if (propsSize == 0) {
-                continue;
-            }
+        if (propsSize == 0) {
+            continue;
+        }
 
-            writeNumber(propsSize);
-            for (size_t j = 0; j < propsSize; ++j) {
-                writeByte(info->properties[j]);
-            }
+        writeNumber(propsSize);
+        for (size_t j = 0; j < propsSize; ++j) {
+            writeByte(info->properties[j]);
         }
     }
 
@@ -1960,8 +1956,8 @@ void K7Zip::K7ZipPrivate::writeFolder(const Folder *folder)
     }
 
     if (folder->packedStreams.size() > 1) {
-        for (int i = 0; i < folder->packedStreams.size(); i++) {
-            writeNumber(folder->packedStreams[i]);
+        for (const quint64 packed : folder->packedStreams) {
+            writeNumber(packed);
         }
     }
 }
@@ -1978,8 +1974,8 @@ void K7Zip::K7ZipPrivate::writeUnpackInfo(const QVector<Folder *> &folderItems)
     writeNumber(folderItems.size());
     {
         writeByte(0);
-        for (int i = 0; i < folderItems.size(); i++) {
-            writeFolder(folderItems[i]);
+        for (const Folder *folderItem : folderItems) {
+            writeFolder(folderItem);
         }
     }
 
@@ -1987,8 +1983,8 @@ void K7Zip::K7ZipPrivate::writeUnpackInfo(const QVector<Folder *> &folderItems)
     int i;
     for (i = 0; i < folderItems.size(); i++) {
         const Folder *folder = folderItems[i];
-        for (int j = 0; j < folder->unpackSizes.size(); j++) {
-            writeNumber(folder->unpackSizes.at(j));
+        for (const quint64 unpackSize : folder->unpackSizes) {
+            writeNumber(unpackSize);
         }
     }
 
@@ -2010,11 +2006,11 @@ void K7Zip::K7ZipPrivate::writeSubStreamsInfo(const QVector<quint64> &unpackSize
 {
     writeByte(kSubStreamsInfo);
 
-    for (int i = 0; i < numUnpackStreamsInFolders.size(); i++) {
-        if (numUnpackStreamsInFolders.at(i) != 1) {
+    for (const quint64 numStreams : std::as_const(numUnpackStreamsInFolders)) {
+        if (numStreams != 1) {
             writeByte(kNumUnpackStream);
-            for (int j = 0; j < numUnpackStreamsInFolders.size(); j++) {
-                writeNumber(numUnpackStreamsInFolders.at(j));
+            for (const quint64 j : std::as_const(numUnpackStreamsInFolders)) {
+                writeNumber(j);
             }
             break;
         }
@@ -2022,9 +2018,9 @@ void K7Zip::K7ZipPrivate::writeSubStreamsInfo(const QVector<quint64> &unpackSize
 
     bool needFlag = true;
     int index = 0;
-    for (int i = 0; i < numUnpackStreamsInFolders.size(); i++) {
-        for (quint32 j = 0; j < numUnpackStreamsInFolders.at(i); j++) {
-            if (j + 1 != numUnpackStreamsInFolders.at(i)) {
+    for (const quint64 numStreams : std::as_const(numUnpackStreamsInFolders)) {
+        for (quint32 j = 0; j < numStreams; ++j) {
+            if (j + 1 != numStreams) {
                 if (needFlag) {
                     writeByte(kSize);
                 }
@@ -2113,12 +2109,7 @@ QByteArray K7Zip::K7ZipPrivate::encodeStream(QVector<quint64> &packSizes, QVecto
 
 void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
 {
-    quint64 packedSize = 0;
-    for (int i = 0; i < packSizes.size(); ++i) {
-        packedSize += packSizes[i];
-    }
-
-    headerOffset = packedSize;
+    headerOffset = std::reduce(packSizes.cbegin(), packSizes.cend());
 
     writeByte(kHeader);
 
@@ -2133,8 +2124,7 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
         QVector<quint64> unpackFileSizes;
         QVector<bool> digestsDefined;
         QVector<quint32> digests;
-        for (int i = 0; i < fileInfos.size(); i++) {
-            const FileInfo *file = fileInfos.at(i);
+        for (const FileInfo *file : std::as_const(fileInfos)) {
             if (!file->hasStream) {
                 continue;
             }
@@ -2159,8 +2149,8 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
         /* ---------- Empty Streams ---------- */
         QVector<bool> emptyStreamVector;
         int numEmptyStreams = 0;
-        for (int i = 0; i < fileInfos.size(); i++) {
-            if (fileInfos.at(i)->hasStream) {
+        for (const FileInfo *info : std::as_const(fileInfos)) {
+            if (info->hasStream) {
                 emptyStreamVector.append(false);
             } else {
                 emptyStreamVector.append(true);
@@ -2211,8 +2201,8 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
 
         int numDefined = 0;
         size_t namesDataSize = 0;
-        for (int i = 0; i < fileInfos.size(); i++) {
-            const QString &name = fileInfos.at(i)->path;
+        for (const FileInfo *info : std::as_const(fileInfos)) {
+            const QString &name = info->path;
             if (!name.isEmpty()) {
                 numDefined++;
                 namesDataSize += (name.length() + 1) * 2;
@@ -2226,10 +2216,10 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
             writeByte(kName);
             writeNumber(namesDataSize);
             writeByte(0);
-            for (int i = 0; i < fileInfos.size(); i++) {
-                const QString &name = fileInfos.at(i)->path;
-                for (int t = 0; t < name.length(); t++) {
-                    wchar_t c = name[t].toLatin1();
+            for (const FileInfo *info : std::as_const(fileInfos)) {
+                const QString &name = info->path;
+                for (const QChar qc : name) {
+                    wchar_t c = qc.toLatin1();
                     writeByte((unsigned char)c);
                     writeByte((unsigned char)(c >> 8));
                 }
@@ -2249,8 +2239,8 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
         QVector<bool> boolVector;
         int numDefined = 0;
         boolVector.reserve(fileInfos.size());
-        for (int i = 0; i < fileInfos.size(); i++) {
-            bool defined = fileInfos.at(i)->attribDefined;
+        for (const FileInfo *info : std::as_const(fileInfos)) {
+            const bool defined = info->attribDefined;
             boolVector.append(defined);
             if (defined) {
                 numDefined++;
@@ -2259,8 +2249,7 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
 
         if (numDefined > 0) {
             writeAlignedBoolHeader(boolVector, numDefined, kAttributes, 4);
-            for (int i = 0; i < fileInfos.size(); i++) {
-                const FileInfo *file = fileInfos.at(i);
+            for (const FileInfo *file : std::as_const(fileInfos)) {
                 if (file->attribDefined) {
                     writeUInt32(file->attributes);
                 }
@@ -2442,8 +2431,7 @@ bool K7Zip::openArchive(QIODevice::OpenMode mode)
         }
         type = d->readByte();
     } else {
-        for (int i = 0; i < d->folders.size(); ++i) {
-            Folder *folder = d->folders.at(i);
+        for (const Folder *folder : std::as_const(d->folders)) {
             d->unpackSizes.append(folder->getUnpackSize());
             d->digestsDefined.append(folder->unpackCRCDefined);
             d->digests.append(folder->unpackCRC);

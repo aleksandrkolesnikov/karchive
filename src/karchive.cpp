@@ -355,11 +355,11 @@ bool KArchive::addLocalDirectory(const QString &path, const QString &destName)
     }
     dir.setFilter(dir.filter() | QDir::Hidden);
     const QStringList files = dir.entryList();
-    for (QStringList::ConstIterator it = files.begin(); it != files.end(); ++it) {
-        if (*it != QLatin1String(".") && *it != QLatin1String("..")) {
-            QString fileName = path + QLatin1Char('/') + *it;
-            //            qCDebug(KArchiveLog) << "storing " << fileName;
-            QString dest = destName.isEmpty() ? *it : (destName + QLatin1Char('/') + *it);
+    for (const auto &file : files) {
+        if (file != QLatin1String(".") && file != QLatin1String("..")) {
+            const QString fileName = path + QLatin1Char('/') + file;
+            // qCDebug(KArchiveLog) << "storing " << fileName;
+            const QString dest = destName.isEmpty() ? file : (destName + QLatin1Char('/') + file);
             QFileInfo fileInfo(fileName);
 
             if (fileInfo.isFile() || fileInfo.isSymLink()) {
@@ -922,7 +922,7 @@ void KArchiveDirectory::removeEntry(KArchiveEntry *entry)
         return;
     }
 
-    QHash<QString, KArchiveEntry *>::Iterator it = d->entries.find(entry->name());
+    auto it = d->entries.find(entry->name());
     // nothing removed?
     if (it == d->entries.end()) {
         qCWarning(KArchiveLog) << "directory " << name() << "has no entry with name " << entry->name();
@@ -976,8 +976,8 @@ bool KArchiveDirectory::copyTo(const QString &dest, bool recursiveCopy) const
         }
 
         const QStringList dirEntries = curDir->entries();
-        for (QStringList::const_iterator it = dirEntries.begin(); it != dirEntries.end(); ++it) {
-            const KArchiveEntry *curEntry = curDir->entry(*it);
+        for (const auto &entry : dirEntries) {
+            const KArchiveEntry *curEntry = curDir->entry(entry);
             if (!curEntry->symLinkTarget().isEmpty()) {
                 QString linkName = curDirName + QLatin1Char('/') + curEntry->name();
                 // To create a valid link on Windows, linkName must have a .lnk file extension.
@@ -1012,14 +1012,10 @@ bool KArchiveDirectory::copyTo(const QString &dest, bool recursiveCopy) const
 
     std::sort(fileList.begin(), fileList.end(), sortByPosition); // sort on d->pos, so we have a linear access
 
-    for (QList<const KArchiveFile *>::const_iterator it = fileList.constBegin(), end = fileList.constEnd(); it != end; ++it) {
-        const KArchiveFile *f = *it;
-        qint64 pos = f->position();
-        if (!f->copyTo(fileToDir[pos])) {
-            return false;
-        }
-    }
-    return true;
+    return std::all_of(fileList.cbegin(), fileList.cend(), [&fileToDir](const KArchiveFile *file) {
+        const qint64 pos = file->position();
+        return file->copyTo(fileToDir[pos]);
+    });
 }
 
 void KArchive::virtual_hook(int, void *)

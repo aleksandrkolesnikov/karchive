@@ -1056,10 +1056,10 @@ bool KZip::doPrepareWriting(const QString &name,
     // Find or create parent dir
     KArchiveDirectory *parentDir = rootDir();
     QString fileName(name);
-    int i = name.lastIndexOf(QLatin1Char('/'));
-    if (i != -1) {
-        QString dir = name.left(i);
-        fileName = name.mid(i + 1);
+    const int idx = name.lastIndexOf(QLatin1Char('/'));
+    if (idx != -1) {
+        const QString dir = name.left(idx);
+        fileName = name.mid(idx + 1);
         // qCDebug(KArchiveLog) << "ensuring" << dir << "exists. fileName=" << fileName;
         parentDir = findOrCreate(dir);
     }

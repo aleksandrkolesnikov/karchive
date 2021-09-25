@@ -12,24 +12,23 @@
 
 void recursive_print(const KArchiveDirectory *dir, const QString &path)
 {
-    QStringList l = dir->entries();
-    l.sort();
-    QStringList::ConstIterator it = l.constBegin();
-    for (; it != l.constEnd(); ++it) {
-        const KArchiveEntry *entry = dir->entry((*it));
+    QStringList list = dir->entries();
+    list.sort();
+    for (const auto &entryName : std::as_const(list)) {
+        const KArchiveEntry *entry = dir->entry(entryName);
         printf("mode=%07o %s %s %s%s %lld isdir=%d\n",
                entry->permissions(),
                entry->user().toLatin1().constData(),
                entry->group().toLatin1().constData(),
                path.toLatin1().constData(),
-               (*it).toLatin1().constData(),
+               entryName.toLatin1().constData(),
                entry->isFile() ? static_cast<const KArchiveFile *>(entry)->size() : 0,
                entry->isDirectory());
         if (!entry->symLinkTarget().isEmpty()) {
             printf("  (symlink to %s)\n", qPrintable(entry->symLinkTarget()));
         }
         if (entry->isDirectory()) {
-            recursive_print((KArchiveDirectory *)entry, path + (*it) + '/');
+            recursive_print(static_cast<const KArchiveDirectory *>(entry), path + entryName + '/');
         }
     }
 }
