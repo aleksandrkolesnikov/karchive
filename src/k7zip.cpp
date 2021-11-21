@@ -317,8 +317,8 @@ public:
     int getNumOutStreams() const
     {
         int result = 0;
-        for (int i = 0; i < folderInfos.size(); i++) {
-            result += folderInfos.at(i)->numOutStreams;
+        for (const auto *folder : folderInfos) {
+            result += folder->numOutStreams;
         }
         return result;
     }
@@ -343,32 +343,17 @@ public:
 
     int findBindPairForInStream(size_t inStreamIndex) const
     {
-        for (int i = 0; i < inIndexes.size(); i++) {
-            if (inIndexes[i] == inStreamIndex) {
-                return i;
-            }
-        }
-        return -1;
+        return inIndexes.indexOf(inStreamIndex);
     }
 
     int findBindPairForOutStream(size_t outStreamIndex) const
     {
-        for (int i = 0; i < outIndexes.size(); i++) {
-            if (outIndexes[i] == outStreamIndex) {
-                return i;
-            }
-        }
-        return -1;
+        return outIndexes.indexOf(outStreamIndex);
     }
 
     int findPackStreamArrayIndex(size_t inStreamIndex) const
     {
-        for (int i = 0; i < packedStreams.size(); i++) {
-            if (packedStreams[i] == inStreamIndex) {
-                return i;
-            }
-        }
-        return -1;
+        return packedStreams.indexOf(inStreamIndex);
     }
 
     void findInStream(quint32 streamIndex, quint32 &coderIndex, quint32 &coderStreamIndex) const
@@ -397,12 +382,9 @@ public:
 
     bool isEncrypted() const
     {
-        for (int i = folderInfos.size() - 1; i >= 0; i--) {
-            if (folderInfos.at(i)->methodID == k_AES) {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(folderInfos.crbegin(), folderInfos.crend(), [](const FolderInfo *info) {
+            return info->methodID == k_AES;
+        });
     }
 
     // bool CheckStructure() const;
@@ -717,6 +699,7 @@ void K7Zip::K7ZipPrivate::readBoolVector2(int numItems, QVector<bool> &v)
         return;
     }
 
+    v.reserve(v.size() + numItems);
     for (int i = 0; i < numItems; i++) {
         v.append(true);
     }
@@ -790,7 +773,8 @@ Folder *K7Zip::K7ZipPrivate::folderItem()
 
         // if (There Are Attributes)
         if ((coderInfo & 0x20) != 0) {
-            int propertiesSize = readNumber();
+            const int propertiesSize = readNumber();
+            info->properties.reserve(info->properties.size() + propertiesSize);
             for (int i = 0; i < propertiesSize; ++i) {
                 info->properties.append(readByte());
             }
@@ -814,8 +798,9 @@ Folder *K7Zip::K7ZipPrivate::folderItem()
         folder->outIndexes.append(readNumber());
     }
 
-    int numPackedStreams = numInStreamsTotal - numBindPairs;
+    const int numPackedStreams = numInStreamsTotal - numBindPairs;
     if (numPackedStreams > 1) {
+        folder->packedStreams.reserve(folder->packedStreams.size() + numPackedStreams);
         for (int i = 0; i < numPackedStreams; ++i) {
             folder->packedStreams.append(readNumber());
         }
@@ -883,6 +868,7 @@ bool K7Zip::K7ZipPrivate::readPackInfo()
         return false;
     }
 
+    packSizes.reserve(numPackStreams);
     for (quint64 i = 0; i < numPackStreams; ++i) {
         packSizes.append(readNumber());
     }
@@ -925,6 +911,7 @@ bool K7Zip::K7ZipPrivate::readUnpackInfo()
     int external = readByte();
     switch (external) {
     case 0: {
+        folders.reserve(numFolders);
         for (int i = 0; i < numFolders; ++i) {
             folders.append(folderItem());
         }
@@ -950,7 +937,8 @@ bool K7Zip::K7ZipPrivate::readUnpackInfo()
 
     for (int i = 0; i < numFolders; ++i) {
         Folder *folder = folders.at(i);
-        int numOutStreams = folder->getNumOutStreams();
+        const int numOutStreams = folder->getNumOutStreams();
+        folder->unpackSizes.reserve(numOutStreams);
         for (int j = 0; j < numOutStreams; ++j) {
             folder->unpackSizes.append(readNumber());
         }
@@ -2813,12 +2801,9 @@ bool K7Zip::closeArchive()
 
     d->packSizes.append(encodedData.size());
 
-    int numUnpackStream = 0;
-    for (int i = 0; i < d->fileInfos.size(); ++i) {
-        if (d->fileInfos.at(i)->hasStream) {
-            numUnpackStream++;
-        }
-    }
+    const int numUnpackStream = std::count_if(d->fileInfos.cbegin(), d->fileInfos.cend(), [](const FileInfo *finfo) {
+        return finfo->hasStream;
+    });
     d->numUnpackStreamsInFolders.append(numUnpackStream);
 
     quint64 headerOffset;
@@ -2845,9 +2830,7 @@ bool K7Zip::closeArchive()
         d->writePackInfo(headerOffset, packSizes, emptyDefined, emptyCrcs);
         d->writeUnpackInfo(folders);
         d->writeByte(kEnd);
-        for (int i = 0; i < packSizes.size(); i++) {
-            headerOffset += packSizes.at(i);
-        }
+        headerOffset += std::reduce(packSizes.cbegin(), packSizes.cend());
         qDeleteAll(folders);
     }
     // end encode header
