@@ -2121,19 +2121,19 @@ void K7Zip::K7ZipPrivate::writeHeader(quint64 &headerOffset)
 
         writeUnpackInfo(folders);
 
-        QVector<quint64> unpackFileSizes;
-        QVector<bool> digestsDefined;
-        QVector<quint32> digests;
+        QVector<quint64> unpackFileSizesVec;
+        QVector<bool> digestsDefinedVec;
+        QVector<quint32> digestsVec;
         for (const FileInfo *file : std::as_const(fileInfos)) {
             if (!file->hasStream) {
                 continue;
             }
-            unpackFileSizes.append(file->size);
-            digestsDefined.append(file->crcDefined);
-            digests.append(file->crc);
+            unpackFileSizesVec.append(file->size);
+            digestsDefinedVec.append(file->crcDefined);
+            digestsVec.append(file->crc);
         }
 
-        writeSubStreamsInfo(unpackSizes, digestsDefined, digests);
+        writeSubStreamsInfo(unpackSizes, digestsDefinedVec, digestsVec);
         writeByte(kEnd);
     }
 
