@@ -1,20 +1,28 @@
-from conans import ConanFile, CMake
+from conan import ConanFile
+from conan.tools.cmake import CMake, CMakeToolchain, CMakeDeps
 import os
+
 
 class KArchiveTestConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
+    generators = "CMakeDeps", "CMakeToolchain"
+
+    def requirements(self):
+        self.requires("KArchive/5.96.0@kde/testing")
+
+    def build_requirements(self):
+        self.tool_requires("cmake/[>=3.16.0]")
 
     def build(self):
         cmake = CMake(self)
-        # Current dir is "test_package/build/<build_id>" and CMakeLists.txt is in "test_package"
-        cmake.configure(source_dir=self.conanfile_directory, build_dir="./")
+        cmake.configure()
         cmake.build()
 
     def imports(self):
-        self.copy("*.dll", dst="bin", src="bin")
-        self.copy("*.dylib*", dst="bin", src="lib")
+        self.copy("*.so*", dst = "lib", src = "bin")
+        #self.copy("*.dll", dst="bin", src="bin")
+        #self.copy("*.dylib*", dst="bin", src="lib")
 
     def test(self):
-        os.chdir("bin")
+        os.chdir(self.build_folder)
         self.run(".%sexample" % os.sep)

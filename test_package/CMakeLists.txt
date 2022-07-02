@@ -1,14 +1,10 @@
+cmake_minimum_required(VERSION 3.16)
+
 project(PackageTest CXX)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
+set(TARGET_NAME "example")
 
-# TODO: rename to Qt6 after branching KF6
-find_package(Qt5 5.6 CONFIG REQUIRED
-  Core
-)
+find_package(KF5Archive 5.96.0 REQUIRED)
 
-# TODO: rename to Qt6 after branching KF6
-add_executable(example example.cpp)
-target_link_libraries(example ${CONAN_LIBS}
-  Qt5::Core)
+add_executable(${TARGET_NAME} "example.cpp")
+target_link_libraries(${TARGET_NAME} KF5::Archive)

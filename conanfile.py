@@ -1,31 +1,64 @@
-from conans import ConanFile, CMake, tools
+from conan import ConanFile
+from conan.tools.cmake import CMake, CMakeToolchain, CMakeDeps
+from conans import tools
+import os
+
 
 class KArchiveConan(ConanFile):
     name = "KArchive"
-    version = "5.37.0"
+    version = "5.96.0"
     license = "LGPL-2.1"
     url = "https://api.kde.org/frameworks/karchive/html/index.html"
     settings = "os", "compiler", "build_type", "arch"
-
-    # build this as shared library by default, but static builds are an option
-    options = {"shared": [True, False]}
-    default_options = "shared=True"
-    generators = "cmake"
+    options = {
+        "shared": [True, False],
+        "with_xz": [True, False]
+    }
+    default_options = {
+        "shared": True,
+        "with_xz": True
+    }
     exports_sources = "*"
+    scm = {
+        "type": "git",
+        "url": "auto",
+        "revision": "auto"
+    }
+
+    def requirements(self):
+        self.requires("zlib/1.2.12")
+        self.requires("bzip2/1.0.8")
+        self.requires("qt/5.15.2")
+        self.requires("extra-cmake-modules/5.96.0@kde/testing")
+
+        if self.options.with_xz:
+            self.requires("xz_utils/5.2.5")
+
+    def build_requirements(self):
+        self.tool_requires("cmake/[>=3.16.0]")
+
+    def generate(self):
+        toolchain = CMakeToolchain(self)
+        qt = self.dependencies["qt"]
+        ecm = self.dependencies["extra-cmake-modules"]
+        toolchain.variables["REQUIRED_QT_VERSION"] = qt.ref.version
+        toolchain.variables["QT_MAJOR_VERSION"] = tools.Version(qt.ref.version).major
+        toolchain.variables["REQUIRED_ECM_VERSION"] = ecm.ref.version
+        toolchain.generate()
+
+        deps = CMakeDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)
-
-        # change the library install dir to just "lib" as that's what Conan expects in its packages
-        args = ['-DCMAKE_INSTALL_PREFIX="%s"' % self.package_folder,
-                '-DKDE_INSTALL_LIBDIR=lib']
-        self.run('cmake %s %s %s' % (self.source_folder, cmake.command_line, " ".join(args)))
-        self.run("cmake --build . --target install %s" % cmake.build_config)
+        cmake.configure()
+        cmake.build()
 
     def package(self):
-        # ideally nothing here, cmake with install takes care of it
-        pass
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.install()
 
     def package_info(self):
-        self.cpp_info.libs = ["KF5Archive"]
-        self.cpp_info.includedirs = ['include/KF5', 'include/KF5/KArchive']
+        self.cpp_info.set_property("cmake_find_mode", "none")
+        self.cpp_info.builddirs = [os.path.join("lib", "cmake", "KF5Archive")]

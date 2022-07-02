@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(KF_VERSION "5.96.0") # handled by release scripts
+
 project(KArchive VERSION ${KF_VERSION})
 
 include(FeatureSummary)
-find_package(ECM 5.95.0  NO_MODULE)
+find_package(ECM ${REQUIRED_ECM_VERSION} CONFIG)
 set_package_properties(ECM PROPERTIES TYPE REQUIRED DESCRIPTION "Extra CMake Modules." URL "https://commits.kde.org/extra-cmake-modules")
 feature_summary(WHAT REQUIRED_PACKAGES_NOT_FOUND FATAL_ON_MISSING_REQUIRED_PACKAGES)
+
 
 
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
@@ -18,8 +20,9 @@ include(KDEGitCommitHooks)
 
 include(ECMGenerateExportHeader)
 
-set(REQUIRED_QT_VERSION 5.15.2)
-find_package(Qt${QT_MAJOR_VERSION}Core ${REQUIRED_QT_VERSION} REQUIRED NO_MODULE)
+# QT_MAJOR_VERSION and REQUIRED_QT_VERSION are set from conanfile.py
+
+find_package(Qt${QT_MAJOR_VERSION} ${REQUIRED_QT_VERSION} REQUIRED Core)
 
 find_package(ZLIB)
 set_package_properties(ZLIB PROPERTIES

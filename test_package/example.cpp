@@ -1,5 +1,4 @@
-#include "kzip.h"
-#include <QIODevice>
+#include <KZip>
 
 int main()
 {
